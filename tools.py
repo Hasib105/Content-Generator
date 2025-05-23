@@ -172,86 +172,66 @@ def save_image_from_base64(base64_data: str, filename: str) -> str:
         return None
 
 
+
+
+
 @tool
 def generate_social_media_thumbnail(content: str) -> dict:
     """
     Generates a thumbnail image for social media based on marketing content.
-
-    Args:
-        content: The marketing content to visualize as a thumbnail
-
-    Returns:
-        A dictionary with image_path, description, and status
+    Returns a PIL image object instead of saving to disk.
     """
-    # Create a thumbnail-optimized prompt
     optimized_prompt = thumbnail_prompt(content)
-    
+
     try:
-        # Use the correct Gemini image generation model
+        # Setup Gemini model for image generation
         image_llm = ChatGoogleGenerativeAI(
             model="models/gemini-2.0-flash-exp-image-generation",
             max_retries=3,
             api_key=os.environ["GEMINI_API_KEY"],
         )
 
-        # Create the message for image generation
         message = {
             "role": "user",
             "content": f"Generate a professional social media thumbnail image: {optimized_prompt}",
         }
-        
-        # Generate image with proper config
+
         response = image_llm.invoke(
             [message],
             generation_config=dict(response_modalities=["TEXT", "IMAGE"]),
         )
-        
-        # Generate unique filename
-        unique_id = str(uuid.uuid4())[:8]
-        filename = f"thumbnail_{unique_id}.png"
-        
-        # Extract image from response (following your working Colab code pattern)
-        image_path = None
-        
+
         if hasattr(response, 'content') and isinstance(response.content, list) and len(response.content) > 1:
-            # Get the image part (usually index 1)
             image_part = response.content[1]
-            
-            if hasattr(image_part, 'get') and image_part.get("image_url"):
-                # Extract base64 data from the image URL
-                image_url = image_part.get("image_url").get("url")
-                if "," in image_url:
-                    image_base64 = image_url.split(",")[-1]
-                    image_path = save_image_from_base64(image_base64, filename)
-                else:
-                    # Direct URL
-                    image_path = save_image_from_url(image_url, filename)
-            elif isinstance(image_part, dict) and "image_url" in image_part:
-                # Alternative structure
+            image_url = None
+
+            if hasattr(image_part, 'get'):
+                image_url = image_part.get("image_url", {}).get("url")
+            elif isinstance(image_part, dict):
                 image_url = image_part["image_url"]["url"]
+
+            if image_url:
+                # Extract base64 image data
                 if "," in image_url:
-                    image_base64 = image_url.split(",")[-1]
-                    image_path = save_image_from_base64(image_base64, filename)
+                    base64_str = image_url.split(",")[-1]
+                    image_data = base64.b64decode(base64_str)
                 else:
-                    image_path = save_image_from_url(image_url, filename)
-        
-        # Return result
-        result = {
-            'image_path': image_path,
-            'description': optimized_prompt,
-            'status': 'success' if image_path else 'failed',
-            'filename': filename if image_path else None,
-            'raw_response': str(type(response.content)) if hasattr(response, 'content') else 'No content'
-        }
-        
-        return result
+                    # If URL is external, download it (optional)
+                    response = requests.get(image_url, timeout=30)
+                    image_data = response.content
+
+                # Load into BytesIO and open with PIL
+                image_io = BytesIO(image_data)
+                image = Image.open(image_io)
+
+                return {
+                    "image": image,
+                    "description": optimized_prompt,
+                    "status": "success"
+                }
+
+        return {"status": "failed", "description": "No image found in response"}
 
     except Exception as e:
-        print(f"Error in generate_social_media_thumbnail: {str(e)}")
-        return {
-            'image_path': None,
-            'description': f"Error generating thumbnail: {str(e)}",
-            'status': 'error',
-            'filename': None,
-            'raw_response': str(e)
-        }
+        print(f"Error generating thumbnail: {str(e)}")
+        return {"status": "error", "description": str(e)}

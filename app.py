@@ -123,39 +123,27 @@ with col2:
         
         with thumbnail_tab:
             thumbnail_data = content_data.get("thumbnail")
-            
-            if thumbnail_data and isinstance(thumbnail_data, dict):
-                if thumbnail_data.get("status") == "success" and thumbnail_data.get("image_path"):
-                    try:
-                        # Check if file exists
-                        if os.path.exists(thumbnail_data["image_path"]):
-                            # Display the image
-                            st.image(thumbnail_data["image_path"], caption="Generated Thumbnail", use_container_width=True)
-                            st.success(f"✅ Thumbnail saved as: {thumbnail_data['filename']}")
-                            
-                            # Download button
-                            with open(thumbnail_data["image_path"], "rb") as file:
-                                st.download_button(
-                                    label="📥 Download Thumbnail",
-                                    data=file.read(),
-                                    file_name=thumbnail_data["filename"],
-                                    mime="image/png"
-                                )
-                        else:
-                            st.error(f"Image file not found at: {thumbnail_data['image_path']}")
-                            
-                    except Exception as e:
-                        st.error(f"Error displaying thumbnail: {str(e)}")
-                        
-                elif thumbnail_data.get("status") == "error":
-                    st.error("Failed to generate thumbnail")
-                    st.error(f"Error: {thumbnail_data.get('description', 'Unknown error')}")
+
+            if thumbnail_data and thumbnail_data.get("status") == "success":
+                image = thumbnail_data.get("image")
+                if image:
+                    st.image(image, caption="Generated Thumbnail", use_container_width=True)
                     
+                    # Optional: Add Download Button
+                    img_bytes = BytesIO()
+                    image.save(img_bytes, format=image.format)
+                    st.download_button(
+                        label="📥 Download Thumbnail",
+                        data=img_bytes.getvalue(),
+                        file_name="thumbnail.png",
+                        mime="image/png"
+                    )
                 else:
-                    st.warning("Thumbnail generation incomplete")
-                        
+                    st.warning("Thumbnail image not available.")
+            elif thumbnail_data and thumbnail_data.get("status") == "error":
+                st.error(thumbnail_data.get("description", "Unknown error"))
             else:
-                st.info("No thumbnail generated. Select 'Complete Package' to generate a thumbnail.")
+                st.info("No thumbnail generated yet.")
                 
     else:
         st.info("Enter a topic and click 'Generate Content' to see results here.")
