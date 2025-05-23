@@ -9,7 +9,7 @@ langgraph = "*"
 langchain-google-genai = "*"
 python-dotenv = "*"
 langchain-community = "*"
-
+pillow = "*"  
 [dev-packages]
 
 [requires]
