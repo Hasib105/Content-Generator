@@ -8,6 +8,7 @@ streamlit = "*"
 langgraph = "*"
 langchain-google-genai = "*"
 python-dotenv = "*"
+langchain-community = "*"
 
 [dev-packages]
 
