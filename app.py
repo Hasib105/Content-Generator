@@ -54,38 +54,27 @@ with col1:
                         "title": f"Content about: {content_topic}",
                         "content": content,
                         "hashtags": [],
-                        "thumbnail_url": None
+                        "thumbnail": None  # Changed from thumbnail_url to thumbnail
                     }
                 else:
                     # Generate complete package with structured output
-                    prompt = f"""
-                    Generate a complete content package about: {content_topic}
-                    
-                    I need:
-                    1. High-quality content (around {word_count} words)
-                    2. SEO-optimized hashtags for social media
-                    3. A thumbnail image for social media
-                    
-                    Please research the topic thoroughly and create engaging, factual content.
-                    """
-                    
-                    # First generate the content
+                    st.info("Generating content...")
                     content = generate_content_with_search.invoke(
                         {"content": content_topic, "word_count": word_count}
                     )
                     
-                    # Then generate hashtags based on that content
+                    st.info("Generating hashtags...")
                     hashtags = generate_seo_hashtags.invoke({"content": content})
                     
-                    # Finally generate thumbnail
-                    thumbnail_url = generate_social_media_thumbnail.invoke({"content": content})
+                    st.info("Generating thumbnail...")
+                    thumbnail_data = generate_social_media_thumbnail.invoke({"content": content})
                     
                     # Store the complete package
                     st.session_state.generated_content = {
                         "title": f"Content about: {content_topic}",
                         "content": content,
                         "hashtags": hashtags,
-                        "thumbnail_url": thumbnail_url
+                        "thumbnail": thumbnail_data  # Changed from thumbnail_url to thumbnail
                     }
                     
                 # Add to chat history
@@ -133,19 +122,41 @@ with col2:
                 st.info("No hashtags generated. Select 'Complete Package' to generate hashtags.")
         
         with thumbnail_tab:
-            if content_data["thumbnail_url"]:
-                try:
-                    # Check if the thumbnail is a valid path
-                    if os.path.exists(content_data["thumbnail_url"]):
-                        st.image(content_data["thumbnail_url"], caption="Generated Thumbnail")
-                    elif content_data["thumbnail_url"].startswith("images/"):
-                        st.image(content_data["thumbnail_url"], caption="Generated Thumbnail")
-                    else:
-                        st.info(content_data["thumbnail_url"])
-                except Exception as e:
-                    st.error(f"Error displaying thumbnail: {str(e)}")
+            thumbnail_data = content_data.get("thumbnail")
+            
+            if thumbnail_data and isinstance(thumbnail_data, dict):
+                if thumbnail_data.get("status") == "success" and thumbnail_data.get("image_path"):
+                    try:
+                        # Check if file exists
+                        if os.path.exists(thumbnail_data["image_path"]):
+                            # Display the image
+                            st.image(thumbnail_data["image_path"], caption="Generated Thumbnail", use_container_width=True)
+                            st.success(f"✅ Thumbnail saved as: {thumbnail_data['filename']}")
+                            
+                            # Download button
+                            with open(thumbnail_data["image_path"], "rb") as file:
+                                st.download_button(
+                                    label="📥 Download Thumbnail",
+                                    data=file.read(),
+                                    file_name=thumbnail_data["filename"],
+                                    mime="image/png"
+                                )
+                        else:
+                            st.error(f"Image file not found at: {thumbnail_data['image_path']}")
+                            
+                    except Exception as e:
+                        st.error(f"Error displaying thumbnail: {str(e)}")
+                        
+                elif thumbnail_data.get("status") == "error":
+                    st.error("Failed to generate thumbnail")
+                    st.error(f"Error: {thumbnail_data.get('description', 'Unknown error')}")
+                    
+                else:
+                    st.warning("Thumbnail generation incomplete")
+                        
             else:
                 st.info("No thumbnail generated. Select 'Complete Package' to generate a thumbnail.")
+                
     else:
         st.info("Enter a topic and click 'Generate Content' to see results here.")
 
